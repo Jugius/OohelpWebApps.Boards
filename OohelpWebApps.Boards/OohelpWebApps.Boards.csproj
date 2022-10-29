@@ -6,14 +6,22 @@
 	<UserSecretsId>3531cdd8-d24a-4639-a99e-7a0824412d48</UserSecretsId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="DownloadedGrids\**" />
+    <Content Remove="DownloadedGrids\**" />
+    <EmbeddedResource Remove="DownloadedGrids\**" />
+    <None Remove="DownloadedGrids\**" />
+  </ItemGroup>
+
 	<ItemGroup>
-		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.7" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="6.0.7" />
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.10" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="6.0.10" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\OutOfHome\OutOfHome.DataProviders.Boards.Grids\OutOfHome.DataProviders.Boards.Grids.csproj" />
+		<ProjectReference Include="..\..\..\OutOfHome\OutOfHome.Excel\OutOfHome.Excel.csproj" />
 	</ItemGroup>
 
 </Project>

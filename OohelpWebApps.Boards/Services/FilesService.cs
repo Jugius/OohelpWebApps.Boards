@@ -1,11 +1,10 @@
-﻿using OohelpWebApps.Boards.Contracts.Common;
-using System.IO.Compression;
+﻿using System.IO.Compression;
 
 namespace OohelpWebApps.Boards.Services;
 
-public static class ArchiveService
+public static class FilesService
 {
-    public static async Task<OperationResult<bool>> Archive(string sourceFile, string archiveFile)
+    public static async Task<OperationResult<bool>> CompressFile(string sourceFile, string archiveFile)
     {
         try
         {
@@ -20,12 +19,12 @@ public static class ArchiveService
             return OperationResult<bool>.FromError(ex);
         }
     }
-    public static async Task<OperationResult<bool>> Archive(GridInfo gridInfo)
+    public static async Task<OperationResult<bool>> CompressResponseById(Guid responseId)
     {
-        string sourceFile = GetFilePath(gridInfo);
+        string sourceFile = GetFilePath(responseId);
         string destinationFile = $"{sourceFile}.gz";
 
-        var compressResult = await Archive(sourceFile, destinationFile);
+        var compressResult = await CompressFile(sourceFile, destinationFile);
 
         if (!compressResult.Success)
             return compressResult;
@@ -41,9 +40,5 @@ public static class ArchiveService
         }    
     }
 
-    public static string GetFilePath(GridInfo gridInfo) => gridInfo.Status switch
-    {
-        Contracts.Common.Enums.GridStatus.Actual => System.IO.Path.Combine("DownloadedGrids", $"{gridInfo.Id}.resp"),
-        Contracts.Common.Enums.GridStatus.Archived => System.IO.Path.Combine("DownloadedGrids", $"{gridInfo.Id}.resp.gz"),
-    };
+    public static string GetFilePath(Guid responseId) => System.IO.Path.Combine("DownloadedGrids", $"{responseId}.resp");
 }

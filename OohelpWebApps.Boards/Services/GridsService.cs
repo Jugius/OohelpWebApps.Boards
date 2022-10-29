@@ -1,12 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using OohelpWebApps.Boards.Configurations.Downloading;
+using OohelpWebApps.Boards.Configurations.Reading;
 using OohelpWebApps.Boards.Contracts.Common;
 using OohelpWebApps.Boards.Contracts.Common.Enums;
 using OohelpWebApps.Boards.Contracts.Requests;
 using OohelpWebApps.Boards.Database;
 using OohelpWebApps.Boards.Database.Dto;
-using OohelpWebApps.Boards.Exceptions;
 using OohelpWebApps.Boards.Mapping;
+using OutOfHome.DataProviders.Boards.Grids.Common;
 using OutOfHome.DataProviders.Boards.Grids.Common.Enums;
 using OutOfHome.DataProviders.Boards.Grids.Properties.Downloading;
 using OutOfHome.DataProviders.Boards.Grids.Services;
@@ -34,7 +35,7 @@ public class GridsService
             var currentActualGrid = await dbContext.Grids.FirstOrDefaultAsync(a => a.Provider == (int)response.Provider && a.Status == (int)GridStatus.Actual);
             if (currentActualGrid != null)
             {
-                var archiveResult = await ArchiveService.Archive(currentActualGrid.ToDomain());
+                var archiveResult = await FilesService.CompressResponseById(currentActualGrid.Id);
 
                 if (archiveResult.Success)
                 {
@@ -45,19 +46,12 @@ public class GridsService
                     return OperationResult<GridInfo>.FromError(archiveResult.Error);
                 }
             }
-            GridDto newGridGto = new GridDto
-            {
-                Status = (int)GridStatus.Actual,
-                BoardsCount = response.BoardsCount,
-                Downloaded = response.Downloaded,
-                Language = (int)response.Language,
-                Provider = (int)response.Provider
-            };
+            GridDto newGridGto = response.ToDto();
 
             dbContext.Grids.Add(newGridGto);
             await dbContext.SaveChangesAsync();
 
-            string file = System.IO.Path.Combine("DownloadedGrids", $"{newGridGto.Id}.resp");
+            string file = FilesService.GetFilePath(newGridGto.Id);
 
             await ResponseService.SaveAsync(response, new FileInfo(file));
             
@@ -68,14 +62,7 @@ public class GridsService
             return OperationResult<GridInfo>.FromError($"Ошибка загрузки {request.Provider}: {ex.Message}");
         }        
     }
-    public async Task<OperationResult<GridInfo>> GetNewest(GridProvider provider)
-    {
-        var dto = await dbContext.Grids.FirstOrDefaultAsync(a => a.Provider == (int)provider && a.Status == (int)GridStatus.Actual);
-        if (dto == null)
-            return OperationResult<GridInfo>.FromError(new ApiException(Contracts.Common.Enums.ResponseStatus.NotFound));
-        return OperationResult<GridInfo>.FromResult(dto.ToDomain());
-    }
-    public async Task<OperationResult<GridInfo[]>> GetNewest()
+    public async Task<OperationResult<GridInfo[]>> GetActual()
     {
         var dtos = await dbContext.Grids.Where(a => a.Status == (int)GridStatus.Actual).ToArrayAsync();
 
@@ -83,5 +70,28 @@ public class GridsService
             return OperationResult<GridInfo[]>.FromResult(dtos.Select(a=>a.ToDomain()).ToArray());
 
         return OperationResult<GridInfo[]>.FromResult(Array.Empty<GridInfo>());
-    }    
+    }
+
+    public async Task<OperationResult<GridBoard[]>> CollectBoards()
+    {
+        var dtos = await dbContext.Grids.Where(a => a.Status == (int)GridStatus.Actual).ToArrayAsync();
+
+        if (dtos.Length == 0)
+            return OperationResult<GridBoard[]>.FromResult(Array.Empty<GridBoard>());
+
+
+        var grids = await Task.WhenAll(dtos.Select(a => LoadGridAsync(a.Id, (GridProvider)a.Provider)));
+        var boards = grids.SelectMany(a => a.Boards).ToArray();
+
+        return OperationResult<GridBoard[]>.FromResult(boards);
+    }
+    private async Task<Grid> LoadGridAsync(Guid responseId, GridProvider provider)
+    {
+        string file = FilesService.GetFilePath(responseId);
+        var response = await ResponseService.LoadAsync(new FileInfo(file), provider);
+
+        var readProperties = new ReadGridConfigurationBuilder(response.Provider).Build();
+        return await GridService.LoadGrid(response, readProperties);
+    }
+
 }
